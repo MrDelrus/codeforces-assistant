@@ -1,10 +1,18 @@
 {
   "name": "codeforces-assistant",
   "displayName": "Codeforces Assistant",
-  "description": "Capture a whole Codeforces contest into one folder, run samples, submit from the editor, and watch the verdict land.",
-  "version": "0.4.3",
+  "description": "Capture a whole Codeforces contest into one folder, run the samples in the editor, and have the submit form filled for you.",
+  "version": "0.4.4",
   "publisher": "mrdelrus",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MrDelrus/codeforces-assistant.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MrDelrus/codeforces-assistant/issues"
+  },
+  "homepage": "https://github.com/MrDelrus/codeforces-assistant#readme",
   "engines": {
     "vscode": "^1.90.0"
   },

@@ -1,0 +1,9 @@
+# Everything the marketplace does not need. The extension ships compiled
+# JavaScript and its media; sources, tests and configuration stay in the repo.
+.vscode/**
+src/**
+tsconfig.json
+node_modules/**
+out/**/*.map
+**/*.ts
+!out/**/*.js
