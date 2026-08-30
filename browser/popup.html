@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="popup.css" />
+<title>Codeforces Assistant</title>
+</head>
+<body>
+<header>
+  <img class="mark" src="icons/icon48.png" alt="" width="20" height="20" />
+  <span class="name">Codeforces Assistant</span>
+</header>
+
+<section class="status" id="status">
+  <span class="dot" id="dot"></span>
+  <span id="statusText">Checking…</span>
+</section>
+
+<button id="capture" class="capture" disabled>No contest to capture</button>
+
+<section class="rows">
+  <label class="row" for="port">
+    <span class="label">VS&nbsp;Code port</span>
+    <input id="port" type="number" min="1024" max="65535" step="1" />
+  </label>
+
+  <label class="row" for="close">
+    <span class="label">Close the submit tab when it lands</span>
+    <input id="close" type="checkbox" />
+  </label>
+</section>
+
+<p class="hint" id="hint"></p>
+
+<footer id="footer"></footer>
+
+<script src="popup.js"></script>
+</body>
+</html>

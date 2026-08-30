@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "Codeforces Assistant",
+  "version": "0.4.3",
+  "description": "Capture a whole Codeforces contest into VS Code, and submit from the editor.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "scripting",
+    "tabs",
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://codeforces.com/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Codeforces Assistant"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://codeforces.com/contest/*",
+        "https://codeforces.com/problemset/problem/*"
+      ],
+      "js": [
+        "parse.js",
+        "capture.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://codeforces.com/*"
+      ],
+      "js": [
+        "tick.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,300 @@
+{
+  "name": "codeforces-assistant",
+  "displayName": "Codeforces Assistant",
+  "description": "Capture a whole Codeforces contest into one folder, run samples, submit from the editor, and watch the verdict land.",
+  "version": "0.4.3",
+  "publisher": "mrdelrus",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Education",
+    "Testing"
+  ],
+  "keywords": [
+    "codeforces",
+    "competitive programming",
+    "contest",
+    "samples"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "icon": "media/icon128.png",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cfa.runSamples",
+        "title": "Codeforces: Run Samples",
+        "icon": "$(play)"
+      },
+      {
+        "command": "cfa.submit",
+        "title": "Codeforces: Submit Active File",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "cfa.startServer",
+        "title": "Codeforces: Start Capture Server"
+      },
+      {
+        "command": "cfa.stopServer",
+        "title": "Codeforces: Stop Capture Server"
+      },
+      {
+        "command": "cfa.openProblem",
+        "title": "Codeforces: Open Problem in Browser"
+      },
+      {
+        "command": "cfa.setHandle",
+        "title": "Codeforces: Set Handle"
+      },
+      {
+        "command": "cfa.forgetClients",
+        "title": "Codeforces: Forget Paired Browser Extensions"
+      },
+      {
+        "command": "cfa.editTemplate",
+        "title": "Codeforces: Edit Solution Template"
+      },
+      {
+        "command": "cfa.placeCursor",
+        "title": "Codeforces: Place Cursor in Solution"
+      },
+      {
+        "command": "cfa.showLog",
+        "title": "Codeforces: Show Log"
+      },
+      {
+        "command": "cfa.openSettings",
+        "title": "Codeforces: Settings",
+        "icon": "$(gear)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cfa",
+          "title": "Codeforces Assistant",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "cfa": [
+        {
+          "id": "cfa.tests",
+          "name": "Codeforces Assistant",
+          "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "cfa.runSamples",
+          "group": "navigation@1",
+          "when": "resourceLangId =~ /^(cpp|c|python)$/"
+        },
+        {
+          "command": "cfa.submit",
+          "group": "navigation@2",
+          "when": "resourceLangId =~ /^(cpp|c|python)$/"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "cfa.openSettings",
+          "when": "view == cfa.tests",
+          "group": "navigation@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Codeforces Assistant",
+      "properties": {
+        "cfa.port": {
+          "type": "number",
+          "default": 29617,
+          "minimum": 1024,
+          "maximum": 65535,
+          "markdownDescription": "Loopback port the browser extension talks to. Bound to `127.0.0.1` only."
+        },
+        "cfa.autoStartServer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Start the capture server when this window opens."
+        },
+        "cfa.contestsDir": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Folder that contest folders are created in. Empty means the first workspace folder. Supports `~`."
+        },
+        "cfa.openOnCapture": {
+          "type": "string",
+          "default": "first",
+          "enum": [
+            "first",
+            "all",
+            "none"
+          ],
+          "enumDescriptions": [
+            "Open problem A after capturing a contest.",
+            "Open every captured problem in a tab.",
+            "Create the files but do not open anything."
+          ],
+          "description": "What to open after a capture."
+        },
+        "cfa.templateFile": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Solution template. Empty means `~/.config/cfa/template.cpp`, which is seeded on first run. Use `$0` to mark where the cursor should land."
+        },
+        "cfa.language": {
+          "type": "string",
+          "default": "cpp",
+          "enum": [
+            "cpp",
+            "python"
+          ],
+          "description": "Language used for new files, local runs, and the Codeforces submit form."
+        },
+        "cfa.cpp.extension": {
+          "type": "string",
+          "default": "cpp",
+          "description": "File extension for C++ solutions."
+        },
+        "cfa.cpp.compile": {
+          "type": "string",
+          "default": "g++ -std=gnu++20 -O2 -pipe -Wall -Wextra -o \"{exe}\" \"{src}\"",
+          "markdownDescription": "Compile command. Placeholders: `{src}`, `{exe}`, `{dir}`, `{name}`."
+        },
+        "cfa.cpp.run": {
+          "type": "string",
+          "default": "\"{exe}\"",
+          "markdownDescription": "Run command. Placeholders: `{src}`, `{exe}`, `{dir}`, `{name}`."
+        },
+        "cfa.python.extension": {
+          "type": "string",
+          "default": "py",
+          "description": "File extension for Python solutions."
+        },
+        "cfa.python.compile": {
+          "type": "string",
+          "default": "",
+          "description": "Compile command for Python. Empty means no compile step."
+        },
+        "cfa.python.run": {
+          "type": "string",
+          "default": "python3 \"{src}\"",
+          "markdownDescription": "Run command. Placeholders: `{src}`, `{exe}`, `{dir}`, `{name}`."
+        },
+        "cfa.runTimeoutMs": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 200,
+          "description": "Per-test wall clock limit for a local run, in milliseconds."
+        },
+        "cfa.compileTimeoutMs": {
+          "type": "number",
+          "default": 30000,
+          "minimum": 1000,
+          "description": "Limit for the compile step, in milliseconds."
+        },
+        "cfa.handle": {
+          "type": "string",
+          "default": "",
+          "description": "Your Codeforces handle. Used to poll the public API for verdicts. Left empty, it is learned from the browser extension."
+        },
+        "cfa.verdict.pollIntervalMs": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 2000,
+          "markdownDescription": "How often to poll the Codeforces API after a submit. The API allows one call every 2 seconds, so values below `2000` are rejected."
+        },
+        "cfa.verdict.timeoutMs": {
+          "type": "number",
+          "default": 600000,
+          "minimum": 10000,
+          "description": "Give up waiting for a verdict after this many milliseconds. It has to outlast you reading the problem and pressing Submit in the browser."
+        },
+        "cfa.saveSamplesNextToSolution": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Also write `<solution>.samples.json` beside each solution. Off keeps contest folders to source files only; samples always live in `<contest>/.cfa/contest.json`."
+        },
+        "cfa.cursorOnOpen": {
+          "type": "string",
+          "default": "position",
+          "enum": [
+            "position",
+            "template",
+            "anchor",
+            "start",
+            "end",
+            "none"
+          ],
+          "enumDescriptions": [
+            "The line and column from cfa.cursorLine and cfa.cursorCharacter.",
+            "Where the template's $0 marker stood. Falls back to cfa.cursorAnchor when the template has no marker.",
+            "End of the first match of cfa.cursorAnchor, searched in the file itself.",
+            "First line.",
+            "Last line.",
+            "Leave the cursor wherever VS Code puts it."
+          ],
+          "markdownDescription": "Where the cursor lands the first time a captured solution is opened in a session. Switching back to a tab you already visited never moves it."
+        },
+        "cfa.cursorAnchor": {
+          "type": "string",
+          "default": "void solve\\(\\)[^\\n]*\\{\\n\\n",
+          "markdownDescription": "Regular expression the cursor is parked after, for `cursorOnOpen: anchor` and as the fallback for `template`. The default lands on the second of the three blank lines in `void solve() { ... }`."
+        },
+        "cfa.cursorReveal": {
+          "type": "string",
+          "default": "center",
+          "enum": [
+            "center",
+            "top",
+            "default"
+          ],
+          "description": "How the editor scrolls to the cursor position."
+        },
+        "cfa.progress.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Colour the problem tab strip from Codeforces: green solved, red submitted but not accepted, grey untouched. Needs `cfa.handle`."
+        },
+        "cfa.progress.pollIntervalMs": {
+          "type": "number",
+          "default": 10000,
+          "minimum": 2000,
+          "markdownDescription": "How often the tab strip re-asks Codeforces. The API allows one call every 2 seconds, so lower values are rejected."
+        },
+        "cfa.cursorLine": {
+          "type": "number",
+          "default": 1,
+          "minimum": 1,
+          "markdownDescription": "Line the cursor lands on when a solution is opened, counted from `1` as the editor gutter counts. Used when `#cfa.cursorOnOpen#` is `position`."
+        },
+        "cfa.cursorCharacter": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "markdownDescription": "Shift along the line the cursor lands on, counted from `0`. Used when `#cfa.cursorOnOpen#` is `position`."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -w -p ./",
+    "package": "npm run compile && npx --yes @vscode/vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.4.0"
+  }
+}

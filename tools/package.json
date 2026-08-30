@@ -1,0 +1,11 @@
+{
+  "name": "codeforces-assistant-tools",
+  "private": true,
+  "description": "Test-only dependencies. Neither extension ships any runtime dependency.",
+  "scripts": {
+    "test": "node parser-test.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.0"
+  }
+}
