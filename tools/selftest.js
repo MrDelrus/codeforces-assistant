@@ -40,28 +40,17 @@ const settings = new Map([
   ['compileTimeoutMs', 30000]
 ]);
 
-const vscodeStub = {
-  workspace: {
-    workspaceFolders: [{ uri: { fsPath: workspaceDir } }],
-    getConfiguration() {
-      return {
-        get(key, fallback) {
-          return settings.has(key) ? settings.get(key) : fallback;
-        }
-      };
-    }
-  },
-  window: {
-    createOutputChannel() {
-      return { appendLine() {}, show() {} };
-    }
-  }
-};
-
+// Nothing loaded below may reach for the editor: the same files run inside
+// `cfa-host`, where `require('vscode')` throws. This used to be a stub; making
+// it an assertion is what keeps the boundary from drifting back, since a new
+// import would fail here rather than only in production.
 const load = Module._load;
 Module._load = function (request, parent, isMain) {
   if (request === 'vscode') {
-    return vscodeStub;
+    throw new Error(
+      `the core must not require('vscode') — ${parent && parent.filename} does. ` +
+        'Editor-only code belongs in extension.ts, adapters.ts or reveal.ts.'
+    );
   }
   return load.call(this, request, parent, isMain);
 };
@@ -76,6 +65,16 @@ const store = require(path.join(OUT, 'store.js'));
 const templates = require(path.join(OUT, 'template.js'));
 const cfaConfig = require(path.join(OUT, 'config.js'));
 const template = require(path.join(OUT, 'template.js'));
+
+// Whoever owns the process supplies the settings. Here that is this file.
+cfaConfig.setSettingsSource({
+  get(key, fallback) {
+    return settings.has(key) ? settings.get(key) : fallback;
+  },
+  workspaceRoot() {
+    return workspaceDir;
+  }
+});
 
 // ── test harness ───────────────────────────────────────────────────────────
 
@@ -640,6 +639,68 @@ async function main() {
       fs.readFileSync(path.join(workspaceDir, '.template.cpp'), 'utf8'),
       'int main() {\n    $0\n}\n'
     );
+  });
+
+  // ── the pieces the host relies on ────────────────────────────────────────
+
+  await test('a run covers the official samples and the user-added ones, in that order', () => {
+    const problem = {
+      samples: [{ input: '1\n', output: 'a\n' }],
+      extraSamples: [{ input: '2\n', output: 'b\n' }]
+    };
+    assert.deepEqual(store.allSamples(problem).map((s) => s.input), ['1\n', '2\n']);
+    const results = store.pendingResults(problem);
+    assert.deepEqual(
+      results.map((r) => [r.number, r.status, r.custom]),
+      [
+        [1, 'pending', false],
+        [2, 'pending', true]
+      ]
+    );
+  });
+
+  const hostSettings = path.join(ROOT, 'host', 'out', 'host', 'src', 'settings.js');
+  await test('the host reads settings written flat or nested', async () => {
+    assert.ok(
+      fs.existsSync(hostSettings),
+      'the host is not built — run "npm run compile" in host/ first'
+    );
+    const { FileSettings } = require(hostSettings);
+    const file = path.join(configDir, 'host-settings.json');
+
+    // The way the documentation writes a key.
+    fs.writeFileSync(file, JSON.stringify({ 'cfa.port': 31000, 'cfa.handle': 'tourist' }));
+    const flat = new FileSettings(undefined);
+    await flat.load(file);
+    assert.equal(flat.get('port', 29617), 31000);
+    assert.equal(flat.get('handle', ''), 'tourist');
+
+    // The way anyone who has edited VS Code's settings.json writes it.
+    fs.writeFileSync(file, JSON.stringify({ cfa: { port: 31001, cpp: { run: 'x' } } }));
+    const nested = new FileSettings(undefined);
+    await nested.load(file);
+    assert.equal(nested.get('port', 29617), 31001);
+    assert.equal(nested.get('cpp.run', ''), 'x');
+
+    // A key of the wrong type is a typo, and the default beats a crash later.
+    fs.writeFileSync(file, JSON.stringify({ 'cfa.port': 'twenty nine thousand' }));
+    const wrong = new FileSettings(undefined);
+    await wrong.load(file);
+    assert.equal(wrong.get('port', 29617), 29617);
+
+    // A missing file is normal; a malformed one is not.
+    const absent = new FileSettings(undefined);
+    await absent.load(path.join(configDir, 'does-not-exist.json'));
+    assert.equal(absent.get('port', 29617), 29617);
+    fs.writeFileSync(file, '{ not json');
+    await assert.rejects(() => new FileSettings(undefined).load(file), /not valid JSON/);
+  });
+
+  await test('--dir is what the host uses when cfa.contestsDir is empty', async () => {
+    const { FileSettings } = require(hostSettings);
+    const source = new FileSettings(workspaceDir);
+    await source.load(path.join(configDir, 'does-not-exist.json'));
+    assert.equal(source.workspaceRoot(), workspaceDir);
   });
 
   console.log('');

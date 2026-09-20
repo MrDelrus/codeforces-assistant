@@ -3,7 +3,7 @@ import * as path from 'node:path';
 
 import { log, logError } from './log';
 import { META_DIR, META_FILE, findContestRoot, parseSolutionName } from './paths';
-import { ContestMeta, ProblemMeta } from './types';
+import { ContestMeta, ProblemMeta, Sample, TestResult } from './types';
 
 /**
  * Contest metadata lives with the contest, not in a global database:
@@ -77,6 +77,33 @@ export async function mergeContest(
   };
   await writeContest(contestFolder, merged);
   return merged;
+}
+
+/**
+ * Every test a run covers, official samples first.
+ *
+ * The order is load-bearing: `TestResult.number` is the position in this list,
+ * and `pendingResults` marks everything past the official count as the user's
+ * own — so a run's numbering matches what the panel and the editor label.
+ */
+export function allSamples(problem: ProblemMeta): Sample[] {
+  return [...problem.samples, ...(problem.extraSamples ?? [])];
+}
+
+/** The same list as results that have not run yet. */
+export function pendingResults(problem: ProblemMeta): TestResult[] {
+  const official = problem.samples.length;
+  return allSamples(problem).map((sample, i) => ({
+    number: i + 1,
+    status: 'pending',
+    input: sample.input,
+    expected: sample.output,
+    actual: '',
+    stderr: '',
+    durationMs: 0,
+    exitCode: null,
+    custom: i >= official
+  }));
 }
 
 export interface ProblemLookup {

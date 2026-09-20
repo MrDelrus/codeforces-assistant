@@ -1,6 +1,5 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
-import * as vscode from 'vscode';
 
 export interface LanguageConfig {
   key: string;
@@ -12,8 +11,40 @@ export interface LanguageConfig {
 const SUPPORTED_LANGUAGES = ['cpp', 'python'] as const;
 export type LanguageKey = (typeof SUPPORTED_LANGUAGES)[number];
 
-function cfg(): vscode.WorkspaceConfiguration {
-  return vscode.workspace.getConfiguration('cfa');
+/**
+ * Where the `cfa.*` values come from.
+ *
+ * In VS Code that is `workspace.getConfiguration('cfa')` plus the open folder;
+ * in `cfa-host` it is a JSON file and a `--dir` argument. The keys are the same
+ * in both, deliberately — one settings reference, not two — so everything below
+ * is written once and asks this interface rather than an editor.
+ */
+export interface SettingsSource {
+  get<T>(key: string, fallback: T): T;
+  /**
+   * Folder contests are created inside when `cfa.contestsDir` is empty.
+   * Undefined where the host has no such notion.
+   */
+  workspaceRoot(): string | undefined;
+}
+
+const DEFAULTS_ONLY: SettingsSource = {
+  get<T>(_key: string, fallback: T): T {
+    return fallback;
+  },
+  workspaceRoot(): undefined {
+    return undefined;
+  }
+};
+
+let source: SettingsSource = DEFAULTS_ONLY;
+
+export function setSettingsSource(next: SettingsSource): void {
+  source = next;
+}
+
+function cfg(): SettingsSource {
+  return source;
 }
 
 export function expandHome(value: string): string {
@@ -157,11 +188,7 @@ export function contestsDir(): string | undefined {
   if (configured) {
     return path.resolve(expandHome(configured));
   }
-  const folders = vscode.workspace.workspaceFolders;
-  if (folders && folders.length > 0) {
-    return folders[0].uri.fsPath;
-  }
-  return undefined;
+  return source.workspaceRoot();
 }
 
 /**

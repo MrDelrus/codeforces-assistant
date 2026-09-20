@@ -1,13 +1,13 @@
 # Codeforces Assistant
 
-Codeforces contests in VS Code: one button for the whole problemset, samples run
-in the editor, verdicts land there too. Fills the submit form — you press
-*Submit*.
+Codeforces contests in your editor: one button for the whole problemset, samples
+run in the editor, verdicts land there too. Fills the submit form — you press
+*Submit*. VS Code and Neovim.
 
 ## Overview
 
-Two screens, one workflow: the statement in the browser, VS Code beside it. The
-tool removes the parts of a round that are not thinking — creating files,
+Two screens, one workflow: the statement in the browser, your editor beside it.
+The tool removes the parts of a round that are not thinking — creating files,
 copying samples, retyping a solution into a web form.
 
 It is deliberately small. It does not recommend problems, theme the site, track
@@ -15,11 +15,14 @@ your rating, or draw on statements.
 
 **Two parts, and they do different jobs.**
 
-- A **VS Code extension**, which holds all of the logic: it creates the files,
-  runs the samples, and polls the public Codeforces API for verdicts. It listens
-  on `127.0.0.1` for the browser.
+- An **editor side**, which holds all of the logic: it creates the files, runs
+  the samples, and polls the public Codeforces API for verdicts. It listens on
+  `127.0.0.1` for the browser. This is the VS Code extension, or — the same code
+  with no editor around it — the `cfa-host` process that the Neovim plugin
+  starts.
 - A **browser extension**, which reads the Codeforces page and drives the submit
-  form. It makes no decisions of its own.
+  form. It makes no decisions of its own, and does not know or care which editor
+  is on the other end.
 
 They talk over loopback only. The browser extension is allow-listed by a prompt
 the first time it connects, and no endpoint executes code.
@@ -36,8 +39,11 @@ never retyping a solution into a browser — needs none of it.
 
 ## Setup
 
-Requires VS Code 1.90+, Node 18+, and a C++ compiler on your `PATH` for running
-samples locally.
+Requires Node 18+ and a C++ compiler on your `PATH` for running samples locally,
+plus VS Code 1.90+ or Neovim 0.9+.
+
+For Neovim, skip to [Neovim](#neovim) below — steps 2 and 4 are the same, the
+rest is not.
 
 **1. Build and install the VS Code extension.**
 
@@ -84,11 +90,96 @@ workspace settings of your contests folder, so only that window listens.
 **Running the tests** (optional):
 
 ```bash
-cd vscode && npm run compile && node ../tools/selftest.js
-cd tools && npm install && npm test
+cd vscode && npm run compile
+cd ../host && npm install && npm run compile
+node ../tools/selftest.js
+cd ../tools && npm install && npm test
 ```
 
+## Neovim
+
+The Neovim side is a thin client. It starts `cfa-host` — the same core, built
+without the editor — and talks to it over that process's stdin and stdout. The
+browser extension is unaffected: it still speaks HTTP to `127.0.0.1:29617`, and
+does not know which editor answered.
+
+**1. Build the host.**
+
+```bash
+git clone https://github.com/MrDelrus/codeforces-assistant
+cd codeforces-assistant/host
+npm install
+npm run compile
+```
+
+**2. Load the browser extension**, exactly as in step 2 above.
+
+**3. Add the plugin.** It is the `nvim/` folder of this checkout. With lazy.nvim:
+
+```lua
+{
+  dir = '~/projects/codeforces-assistant/nvim',
+  opts = { dir = '~/codeforces/contests' },
+}
+```
+
+or, with no plugin manager at all, put `nvim/` on your `runtimepath` and call
+`require('cfa').setup({ dir = '~/codeforces/contests' })`.
+
+`opts` takes `dir` (where contests are created), `port`, `settings` (a settings
+file other than the default), `cmd` (how to start the host, if you have it
+somewhere other than this checkout), and `open_on_capture`.
+
+**4. Pair them.** The first capture asks, inside Neovim, whether that browser
+extension may connect. Answer once.
+
+**Settings** live in `$XDG_CONFIG_HOME/cfa/settings.json` — the same `cfa.*`
+keys VS Code shows in its settings UI, since there is one settings reference for
+this tool:
+
+```json
+{
+  "cfa.handle": "MrDelrus",
+  "cfa.contestsDir": "~/codeforces/contests",
+  "cfa.cpp.compile": "g++ -std=gnu++20 -O2 -o \"{exe}\" \"{src}\""
+}
+```
+
+A nested `{ "cfa": { "handle": "..." } }` is accepted too.
+
+### Commands
+
+Everything is `:Cfa <command> [args]`, with completion on the command. An
+optional problem index acts on a sibling — `:Cfa test B` from inside `2050A.cpp`
+runs B without leaving A.
+
+| | |
+|---|---|
+| `:Cfa test [index]` | compile and run every sample; failures go to the quickfix list and the panel |
+| `:Cfa submit [index]` | queue the solution; the browser fills the form, you press *Submit* |
+| `:Cfa cancel` | stop waiting on a queued submit, leaving the browser tab alone |
+| `:Cfa status` | port, contests folder, handle, paired extensions, what is queued |
+| `:Cfa problem [index]` | what this file is, its limits, and its siblings |
+| `:Cfa panel` | reopen the last run |
+| `:Cfa diff <n>` | expected against actual for test `n`, in a real diff |
+| `:Cfa log` | the host log |
+| `:Cfa forget` | unpair every browser extension |
+| `:Cfa restart`, `:Cfa stop` | restart the host, or stop it and release the port |
+
+**No key mappings are defined.** What a key does is yours to decide; map what
+you use:
+
+```lua
+vim.keymap.set('n', '<leader>ct', '<Cmd>Cfa test<CR>')
+```
+
+The host starts on the first `:Cfa` and stops when Neovim exits, so an installed
+but unused plugin costs nothing and never holds the port.
+
 ## Usage
+
+The panel, the buttons and the gear below are VS Code's. Everything they do,
+Neovim does through `:Cfa` — see the table above.
 
 ### Capture a contest
 
