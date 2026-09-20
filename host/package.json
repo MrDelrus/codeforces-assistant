@@ -1,0 +1,21 @@
+{
+  "name": "cfa-host",
+  "version": "0.4.4",
+  "private": true,
+  "description": "Headless Codeforces Assistant: the capture server and the sample runner, outside any editor.",
+  "license": "MIT",
+  "bin": {
+    "cfa-host": "./out/host/src/main.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -w -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.4.0"
+  }
+}

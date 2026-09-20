@@ -2,19 +2,26 @@ import * as crypto from 'node:crypto';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 
-import { applyCapture, revealCapture, CaptureResult } from './capture';
+import { installVsCodeLog, installVsCodeSettings } from './adapters';
+import { applyCapture, CaptureResult } from './capture';
 import * as config from './config';
 import * as cursor from './cursor';
-import { initLog, log, logError, showLog } from './log';
+import { log, logError, showLog } from './log';
 import { PanelState, SettingsState, TestsPanel } from './panel';
+import { revealCapture } from './reveal';
 import { CaptureServer } from './server';
 import { ProgressPoller } from './progress';
-import { lookupByFile, updateProblem, ProblemLookup } from './store';
+import {
+  allSamples,
+  lookupByFile,
+  pendingResults,
+  updateProblem,
+  ProblemLookup
+} from './store';
 import { activeTemplateFile, adoptTemplate, seedTemplate, TemplateExistsError } from './template';
 import {
   ContestMeta,
   PendingSubmit,
-  ProblemMeta,
   ProblemStatus,
   ProblemTab,
   Sample,
@@ -51,7 +58,10 @@ function endWithNewline(text: string): string {
 const IDLE_VERDICT: VerdictState = { phase: 'idle', updatedAt: 0 };
 
 export function activate(context: vscode.ExtensionContext): void {
-  initLog();
+  // Before anything else: the core asks these two for settings and for
+  // somewhere to log, and answers nothing useful until they are installed.
+  installVsCodeLog();
+  installVsCodeSettings();
   const app = new Application(context);
   context.subscriptions.push(app);
   void app.start();
@@ -296,26 +306,6 @@ class Application implements vscode.Disposable {
 
   // ── tests ───────────────────────────────────────────────────────────────
 
-  /** Official samples first, then the user's own, which is the order they run in. */
-  private static tests(problem: ProblemMeta): Sample[] {
-    return [...problem.samples, ...(problem.extraSamples ?? [])];
-  }
-
-  private static toResults(problem: ProblemMeta): TestResult[] {
-    const official = problem.samples.length;
-    return Application.tests(problem).map((sample, i) => ({
-      number: i + 1,
-      status: 'pending',
-      input: sample.input,
-      expected: sample.output,
-      actual: '',
-      stderr: '',
-      durationMs: 0,
-      exitCode: null,
-      custom: i >= official
-    }));
-  }
-
   private async addTest(input: string, expected: string): Promise<void> {
     const found = this.current;
     if (!found) {
@@ -483,7 +473,7 @@ class Application implements vscode.Disposable {
       // the user has to see a test to decide to add another one.
       run:
         (file ? this.runs.get(file) : undefined) ??
-        (this.current ? { phase: 'idle', results: Application.toResults(this.current.problem) } : IDLE_RUN),
+        (this.current ? { phase: 'idle', results: pendingResults(this.current.problem) } : IDLE_RUN),
       officialCount: this.current?.problem.samples.length,
       verdict: (file ? this.verdicts.get(file) : undefined) ?? IDLE_VERDICT,
       server: {
@@ -524,7 +514,7 @@ class Application implements vscode.Disposable {
       return;
     }
 
-    const samples = Application.tests(found.problem);
+    const samples = allSamples(found.problem);
     if (samples.length === 0) {
       void vscode.window.showWarningMessage(
         `${found.problem.id} has no samples. Re-capture the contest to fetch them.`
@@ -535,7 +525,7 @@ class Application implements vscode.Disposable {
     await vscode.workspace.save(vscode.Uri.file(file));
     this.busyFile = file;
 
-    const results: TestResult[] = Application.toResults(found.problem);
+    const results: TestResult[] = pendingResults(found.problem);
 
     const state: RunState = {
       phase: 'compiling',

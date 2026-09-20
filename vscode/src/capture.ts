@@ -1,9 +1,6 @@
 import { promises as fs } from 'node:fs';
-import * as path from 'node:path';
-import * as vscode from 'vscode';
 
 import * as config from './config';
-import { markPositioned, place } from './cursor';
 import { log } from './log';
 import { contestDir, problemId, solutionPath } from './paths';
 import { mergeContest } from './store';
@@ -39,7 +36,7 @@ export async function applyCapture(capture: ValidCapture): Promise<CaptureResult
   const base = config.contestsDir();
   if (!base) {
     throw new Error(
-      'No contests folder. Open a folder in VS Code, or set "cfa.contestsDir" in settings.'
+      'No contests folder. Open a folder in the editor, or set "cfa.contestsDir" in settings.'
     );
   }
 
@@ -106,30 +103,4 @@ export async function applyCapture(capture: ValidCapture): Promise<CaptureResult
     existing,
     totalSamples
   };
-}
-
-/** Open captured files according to `cfa.openOnCapture`, cursor placed on the marker. */
-export async function revealCapture(result: CaptureResult): Promise<void> {
-  const mode = config.openOnCapture();
-  if (mode === 'none') {
-    return;
-  }
-
-  const ordered = [...result.created, ...result.existing].sort((a, b) =>
-    path.basename(a).localeCompare(path.basename(b))
-  );
-  const toOpen = mode === 'all' ? ordered : ordered.slice(0, 1);
-  const template = await readTemplate();
-
-  for (const file of toOpen) {
-    const document = await vscode.workspace.openTextDocument(file);
-    const editor = await vscode.window.showTextDocument(document, { preview: false });
-    // Only a file we just created still has the template's cursor position.
-    if (template.cursor && result.created.includes(file)) {
-      place(editor, new vscode.Position(template.cursor.line, template.cursor.character));
-    }
-    // Whatever happened here counts as this session's placement for the file;
-    // the open-file rule must not move the caret again a moment later.
-    markPositioned(file);
-  }
 }
